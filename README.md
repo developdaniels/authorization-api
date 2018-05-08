@@ -1,6 +1,8 @@
 # authorization-api
 Challenge Back-End for Genesis Automation in Healthcare
 
+Please visit https://gitlab.com/developdaniels/authorization-api/activity to see all my commits descriptions...
+
 Start using acessing http://localhost:50123/swagger/ or calling the following endpoints:
 
 POST http://localhost:50123/api/Users/SignUp
