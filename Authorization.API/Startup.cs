@@ -105,8 +105,10 @@ namespace Authorization.API
 
             app.UseExceptionHandler(_pathErrorController);
 
+            app.UseAuthenticationMiddleware();
             app.UseAuthentication();
             app.UseStaticFiles();
+
             app.UseMvc();
         }
     }
