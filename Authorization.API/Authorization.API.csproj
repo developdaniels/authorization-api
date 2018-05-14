@@ -18,6 +18,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Attributes\LocalizationPipeline.cs" />
+    <Compile Remove="Attributes\Policy.cs" />
+    <Compile Remove="Attributes\SampleAsyncActionFilter.cs" />
+    <Compile Remove="Attributes\UserKeyValidatorsMiddleware.cs" />
+    <Compile Remove="Attributes\ValidateModelAttributes.cs" />
     <Compile Remove="Migrations\20180505192058_InitialCreate.cs" />
     <Compile Remove="Migrations\20180505192058_InitialCreate.Designer.cs" />
     <Compile Remove="Migrations\20180505192744_InitialCreate.cs" />
@@ -36,10 +41,6 @@
     <Compile Remove="Migrations\20180507152621_ChangedTokenToByteArray.Designer.cs" />
     <Compile Remove="Migrations\20180507152827_ChangedTokenToByteArray.cs" />
     <Compile Remove="Migrations\20180507152827_ChangedTokenToByteArray.Designer.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="wwwroot\" />
   </ItemGroup>
 
   <ItemGroup>
@@ -66,6 +67,10 @@
     <Content Update="nlog.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="wwwroot\" />
   </ItemGroup>
 
 </Project>

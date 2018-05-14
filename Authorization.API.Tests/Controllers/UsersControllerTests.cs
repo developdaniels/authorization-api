@@ -1,6 +1,7 @@
 ﻿using Authorization.API.Controllers;
 using Authorization.API.Data;
 using Authorization.API.DTO;
+using Authorization.API.Middleware;
 using Authorization.API.Model;
 using Authorization.API.Util;
 using Microsoft.AspNetCore.Http;
@@ -269,8 +270,8 @@ namespace Authorization.API.Tests.Controllers
         }
 
         [Fact]
-        [Trait("UsersController", "Search_Error")]
-        public async void Search_ThrowException_gReturnInternalServerError()
+        [Trait("UsersController", "Search_Authorization")]
+        public void Search_JwtAuthorizeAttribueExists_Exists()
         {
             //Arrange
             var mockIUserService = new Mock<IUserService>();
@@ -278,110 +279,15 @@ namespace Authorization.API.Tests.Controllers
             var mockIHashHelper = new Mock<IHashHelper>();
             var mockILogger = new Mock<ILogger<UsersController>>();
 
-            mockIUserService.Setup(m => m.FirstOrDefaultByIdAsync(It.IsAny<Guid>())).Throws(new Exception());
-
-            //Act
             var uc = new UsersController(mockIUserService.Object, mockIConfiguration.Object, mockIHashHelper.Object, mockILogger.Object);
-            var result = await uc.Search(_userId);
 
-            //Assert
-            Assert.Equal((int)HttpStatusCode.InternalServerError, ((ObjectResult)result).StatusCode);
-        }
+            // Act
+            var type = uc.GetType();
+            var methodInfo = type.GetMethod("Search");
+            var attributes = methodInfo.GetCustomAttributes(typeof(JwtAuthorizeAttribute), true);
 
-        [Fact]
-        [Trait("UsersController", "Search_Error")]
-        public async void Search_NoHeaderAuthentication_ReturnUnauthorizedUnauthorizedErrorMessage()
-        {
-            //Arrange
-            var mockIUserService = new Mock<IUserService>();
-            var mockIConfiguration = new Mock<IConfiguration>();
-            var mockIHashHelper = new Mock<IHashHelper>();
-            var mockILogger = new Mock<ILogger<UsersController>>();
-
-            //Act
-            var uc = new UsersController(mockIUserService.Object, mockIConfiguration.Object, mockIHashHelper.Object, mockILogger.Object);
-            uc.ControllerContext.HttpContext = new DefaultHttpContext();
-            uc.ControllerContext.HttpContext.Request.Headers.Clear();
-            var result = await uc.Search(_userId);
-
-            //Assert
-            Assert.IsType<ObjectResult>(result);
-            Assert.Equal((int)HttpStatusCode.Unauthorized, ((ObjectResult)result).StatusCode);
-            Assert.Equal(new ErrorMessage() { Message = ErrorMessage.Unauthorized }, ((ObjectResult)result).Value);
-        }
-
-        [Fact]
-        [Trait("UsersController", "Search_Error")]
-        public async void Search_HeaderAuthenticationNonExistentUser_ReturnUnauthorizedNonExistentErrorMessage()
-        {
-            //Arrange
-            var mockIUserService = new Mock<IUserService>();
-            var mockIConfiguration = new Mock<IConfiguration>();
-            var mockIHashHelper = new Mock<IHashHelper>();
-            var mockILogger = new Mock<ILogger<UsersController>>();
-
-            User user = null;
-            mockIUserService.Setup(m => m.FirstOrDefaultByIdAsync(It.IsAny<Guid>())).ReturnsAsync(user);
-            
-            //Act
-            var uc = new UsersController(mockIUserService.Object, mockIConfiguration.Object, mockIHashHelper.Object, mockILogger.Object);
-            uc.ControllerContext.HttpContext = new DefaultHttpContext();
-            uc.ControllerContext.HttpContext.Request.Headers.Add("Authentication", "");
-            var result = await uc.Search(_userId);
-
-            //Assert
-            Assert.IsType<ObjectResult>(result);
-            Assert.Equal((int)HttpStatusCode.Unauthorized, ((ObjectResult)result).StatusCode);
-            Assert.Equal(new ErrorMessage() { Message = ErrorMessage.Nonexistent }, ((ObjectResult)result).Value);
-        }
-
-        [Fact]
-        [Trait("UsersController", "Search_Error")]
-        public async void Search_HeaderAuthenticationExistentUserTokenInvalid_ReturnUnauthorizedUnauthorizedErrorMessage()
-        {
-            //Arrange
-            var mockIUserService = new Mock<IUserService>();
-            var mockIConfiguration = new Mock<IConfiguration>();
-            var mockIHashHelper = new Mock<IHashHelper>();
-            var mockILogger = new Mock<ILogger<UsersController>>();
-
-            mockIUserService.Setup(m => m.FirstOrDefaultByIdAsync(It.IsAny<Guid>())).ReturnsAsync(_userValid);
-            
-            //Act
-            var uc = new UsersController(mockIUserService.Object, mockIConfiguration.Object, mockIHashHelper.Object, mockILogger.Object);
-            uc.ControllerContext.HttpContext = new DefaultHttpContext();
-            uc.ControllerContext.HttpContext.Request.Headers.Add("Authentication", "Bearer WrongToken");
-            var result = await uc.Search(_userId);
-
-            //Assert
-            Assert.IsType<ObjectResult>(result);
-            Assert.Equal((int)HttpStatusCode.Unauthorized, ((ObjectResult)result).StatusCode);
-            Assert.Equal(new ErrorMessage() { Message = ErrorMessage.Unauthorized }, ((ObjectResult)result).Value);
-        }
-
-        [Fact]
-        [Trait("UsersController", "Search_Error")]
-        public async void Search_HeaderAuthenticationExistentUserTokenValidSessionExpired_ReturnUnauthorizedIvalidSessionErrorMessage()
-        {
-            //Arrange
-            var mockIUserService = new Mock<IUserService>();
-            var mockIConfiguration = new Mock<IConfiguration>();
-            var mockIHashHelper = new Mock<IHashHelper>();
-            var mockILogger = new Mock<ILogger<UsersController>>();
-
-            mockIUserService.Setup(m => m.FirstOrDefaultByIdAsync(It.IsAny<Guid>())).ReturnsAsync(_userInvalid);
-            mockIHashHelper.Setup(m => m.CompareStringToSHA256(It.IsAny<String>(), It.IsAny<byte[]>())).Returns(true);
-
-            //Act
-            var uc = new UsersController(mockIUserService.Object, mockIConfiguration.Object, mockIHashHelper.Object, mockILogger.Object);
-            uc.ControllerContext.HttpContext = new DefaultHttpContext();
-            uc.ControllerContext.HttpContext.Request.Headers.Add("Authentication", "Bearer Token");
-            var result = await uc.Search(_userId);
-
-            //Assert
-            Assert.IsType<ObjectResult>(result);
-            Assert.Equal((int)HttpStatusCode.Unauthorized, ((ObjectResult)result).StatusCode);
-            Assert.Equal(new ErrorMessage() { Message = ErrorMessage.InvalidSession }, ((ObjectResult)result).Value);
+            // Assert
+            Assert.Single(attributes);
         }
 
         [Fact]

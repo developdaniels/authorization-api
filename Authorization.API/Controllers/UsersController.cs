@@ -11,22 +11,23 @@ using System.Collections.Generic;
 using System.Net;
 using Microsoft.Extensions.Logging;
 using Authorization.API.DTO;
+using Microsoft.AspNetCore.Authorization;
+using Authorization.API.Middleware;
 
 namespace Authorization.API.Controllers
 {
     [Produces("application/json")]
     [Route("api/Users/[Action]")]
+
     public class UsersController : Controller
     {
         private readonly IUserService _userService;
         private readonly String _jwtSigningKey;
-        private readonly Double _authSessionInMinutes;
+        private readonly int _tokenExpirationTime;
         private readonly IHashHelper _hashHelper;
-        private readonly ILogger<UsersController> _logger;
+        public readonly ILogger<UsersController> _logger;
 
-        private const String _authentication = "Authentication";
         private const String _bearer = "Bearer ";
-
         private const String _claimIdKey = "id";
         private const String _claimLastLoginOnKey = "lastLoginOn";
 
@@ -34,7 +35,7 @@ namespace Authorization.API.Controllers
         {
             _logger = logger;
             _jwtSigningKey = configuration["JWT:SigningKey"];
-            _authSessionInMinutes = Double.TryParse(configuration["Auth:SessionInMinutes"], out _authSessionInMinutes) ? _authSessionInMinutes : 30.0;
+            _tokenExpirationTime = int.TryParse(configuration["Auth:SessionInMinutes"], out _tokenExpirationTime) ? _tokenExpirationTime : 30;
 
             _userService = userService;
             _hashHelper = hashHelper;
@@ -54,6 +55,7 @@ namespace Authorization.API.Controllers
                     return BadRequest(ModelState);
                 }
 
+                infoSignUp.Email = infoSignUp.Email.ToLower();
                 bool userAlreadyExist = await _userService.AnyByEmailAsync(infoSignUp.Email);
 
                 if (userAlreadyExist)
@@ -71,7 +73,7 @@ namespace Authorization.API.Controllers
                 new Claim(_claimLastLoginOnKey, newUser.LastLoginOn.ToString())
             };
 
-                String jwtToken = JwtTokenHelper.WriteJwtToken(exampleClaims, _jwtSigningKey);
+                String jwtToken = JwtTokenHelper.WriteJwtToken(exampleClaims, _jwtSigningKey, _tokenExpirationTime);
 
                 newUser.Token = jwtToken;
                 newUser.TokenHashed = _hashHelper.ComputeSha256FromString(_bearer + jwtToken);
@@ -105,6 +107,7 @@ namespace Authorization.API.Controllers
                     return BadRequest(ModelState);
                 }
 
+                infoSignIn.Email = infoSignIn.Email.ToLower();
                 var existentUser = await _userService.FirstOrDefaultByEmailAsync(infoSignIn.Email);
 
                 if (existentUser == null)
@@ -125,7 +128,7 @@ namespace Authorization.API.Controllers
                 new Claim(_claimLastLoginOnKey, existentUser.LastLoginOn.ToString())
             };
 
-                String jwtToken = JwtTokenHelper.WriteJwtToken(exampleClaims, _jwtSigningKey);
+                String jwtToken = JwtTokenHelper.WriteJwtToken(exampleClaims, _jwtSigningKey, _tokenExpirationTime);
                 existentUser.Token = jwtToken;
                 existentUser.TokenHashed = _hashHelper.ComputeSha256FromString(_bearer + jwtToken);
 
@@ -142,48 +145,32 @@ namespace Authorization.API.Controllers
         }
 
         // GET: api/Users/Search/00000000-0000-0000-0000-000000000000
-        //[Route("{userId:guid}")]
         [HttpGet("{userId}")]
+        [JwtAuthorize]
         public async Task<IActionResult> Search(Guid userId)
         {
             try
             {
                 _logger.LogInformation(String.Format("Action: {0} | Status: {1}", "Search", "Begin   - " + userId.ToString()));
 
-                if (!Request.Headers.Any(h => h.Key == _authentication))
-                {
-                    _logger.LogWarning(String.Format("Action: {0} | Status: {1}", "Search", "Failure - Header authentication not found"));
-                    return StatusCode((int)HttpStatusCode.Unauthorized, new ErrorMessage() { Message = ErrorMessage.Unauthorized });
-                }
-
                 User user = await _userService.FirstOrDefaultByIdAsync(userId);
 
                 if (user == null)
                 {
-                    _logger.LogWarning(String.Format("Action: {0} | Status: {1}", "Search", "Failure - User not found"));
-                    return StatusCode((int)HttpStatusCode.Unauthorized, new ErrorMessage() { Message = ErrorMessage.Nonexistent });
+                    _logger.LogInformation(String.Format("Action: {0} | Status: {1}", "Search", "Noexistent User"));
+                    return StatusCode((int)HttpStatusCode.NotFound, new ErrorMessage() { Message = ErrorMessage.Nonexistent });
                 }
-
-                if (!_hashHelper.CompareStringToSHA256(Request.Headers[_authentication], user.TokenHashed))
+                else
                 {
-                    _logger.LogWarning(String.Format("Action: {0} | Status: {1}", "Search", "Failure - Invalid Token"));
-                    return StatusCode((int)HttpStatusCode.Unauthorized, new ErrorMessage() { Message = ErrorMessage.Unauthorized });
+                    UserDTO userDto = new UserDTO(user);
+                    _logger.LogInformation(String.Format("Action: {0} | Status: {1}", "Search", "Success"));
+                    return Ok(userDto);
                 }
 
-                if (user.LastLoginOn.AddMinutes(_authSessionInMinutes) <= DateTime.Now)
-                {
-                    _logger.LogWarning(String.Format("Action: {0} | Status: {1}", "Search", "Failure - Invalid Session"));
-                    return StatusCode((int)HttpStatusCode.Unauthorized, new ErrorMessage() { Message = ErrorMessage.InvalidSession });
-                }
-
-                UserDTO userDto = new UserDTO(user);
-
-                _logger.LogInformation(String.Format("Action: {0} | Status: {1}", "Search", "Success"));
-                return Ok(userDto);
             }
             catch (Exception ex)
             {
-                _logger.LogError(String.Format("Action: {0} | Status: {1}", "SignUp", "Exception"));
+                _logger.LogError(String.Format("Action: {0} | Status: {1}", "Search", "Exception"));
                 return StatusCode((int)HttpStatusCode.InternalServerError, new ErrorMessage() { Message = ex.Message });
             }
         }

@@ -9,15 +9,17 @@ namespace Authorization.API.Util
 {
     public static class JwtTokenHelper
     {
-        public static String WriteJwtToken(IEnumerable<Claim> claims, String SigningKey)
+        public static String WriteJwtToken(IEnumerable<Claim> claims, String signingKey, int expirationTime)
         {
             var token = new JwtSecurityToken
             (
                 claims: claims,
                 signingCredentials: new SigningCredentials(
                     new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(SigningKey)),
-                        SecurityAlgorithms.HmacSha256)
+                        Encoding.UTF8.GetBytes(signingKey)),
+                        SecurityAlgorithms.HmacSha256),
+                expires: DateTime.Now.AddMinutes(expirationTime),
+                notBefore: DateTime.Now
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
